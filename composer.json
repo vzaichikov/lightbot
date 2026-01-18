@@ -1,0 +1,21 @@
+{
+    "name": "hobotix/lightbot",
+    "type": "project",
+    "autoload": {
+        "files": [
+            "src/Hobotix/LightBot/Config.php",
+            "src/Hobotix/LightBot/Texts.php",
+            "src/Hobotix/LightBot/Texts2.php"
+        ],
+        "psr-4": {
+            "Hobotix\\": "src/Hobotix/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Victor Hobotix",
+            "email": "admin@hobotix.com.ua"
+        }
+    ],
+    "require": {}
+}
