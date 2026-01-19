@@ -8,7 +8,7 @@ final class LightBot
 
     public function __construct(?Database $database = null)
     {
-        $this->database = $database ?? new Database(Config::db);
+        $this->database = $database ?? new Database(Config::getDb());
     }
 
     public static function echoLine(string $line, string $type = 'l'): void
@@ -82,7 +82,7 @@ final class LightBot
 
     public function checkStatus(): string
     {
-        $domains = Config::domains;
+        $domains = Config::getDomains();
         if ($domains === []) {
             self::echoLine('No domains configured. Nothing to check.', 'e');
             return '0';

@@ -8,13 +8,13 @@ use Hobotix\Lightbot\Database;
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $domain = strtolower(trim(explode(':', $host)[0]));
 
-if ($domain === '' || !array_key_exists($domain, Config::domains)) {
+if ($domain === '' || !array_key_exists($domain, Config::getDomains())) {
     http_response_code(404);
     echo 'Not Found';
     exit;
 }
 
-$database = new Database(Config::db);
+$database = new Database(Config::getDb());
 $status = $database->fetchStatus($domain);
 $events = $database->fetchRecentEvents($domain, 5);
 
