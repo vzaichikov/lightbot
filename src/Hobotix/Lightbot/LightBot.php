@@ -78,6 +78,25 @@ final class LightBot
         return !empty($config['tg_token']) && !empty($config['tg_chat_id']);
     }
 
+    private function getDurationSinceLastChange(?string $lastChangeAt, \DateTimeImmutable $now): array
+    {
+        if (empty($lastChangeAt)) {
+            return [0, 0];
+        }
+
+        try {
+            $lastChange = new \DateTimeImmutable($lastChangeAt);
+        } catch (\Throwable $exception) {
+            return [0, 0];
+        }
+
+        $interval = $lastChange->diff($now);
+        $hours = ($interval->days * 24) + $interval->h;
+        $minutes = $interval->i;
+
+        return [$hours, $minutes];
+    }
+
     public function checkStatus(): string
     {
         $domains = Config::getDomains();
@@ -134,10 +153,19 @@ final class LightBot
         if ($pendingStatus !== null && (int)$pendingStatus === $currentStatus) {
             self::echoLine('Same changed status detected twice in a row, confirming change and sending alert', 'w');
             if ($this->shouldSendTelegram($config)) {
+                [$hours, $minutes] = $this->getDurationSinceLastChange(
+                    $existingStatus['last_change_at'] ?? null,
+                    $now
+                );
                 $this->sendTelegramMessage(
                     $config['tg_token'],
                     $config['tg_chat_id'],
-                    Texts::get_random_text((bool)$currentStatus, $config['texts_block'])
+                    Texts::get_random_text_with_duration(
+                        (bool)$currentStatus,
+                        $hours,
+                        $minutes,
+                        $config['texts_block']
+                    )
                 );
             }
             $this->database->confirmStatusChange($domain, $currentStatus, $now);
