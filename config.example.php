@@ -2,19 +2,26 @@
 
 return [
     'db' => [
-        'host' => 'localhost',
-        'database' => 'lightbot',
-        'user' => 'lightbot',
-        'password' => '',
+        'host' => '127.0.0.1',
+        'database' => 'db',
+        'user' => 'user',
+        'password' => 'change-me',
         'charset' => 'utf8mb4',
     ],
     'domains' => [
-        'example.com' => [
-            'ip' => '127.0.0.1',
-            'port' => 80,
-            'timeout' => 2,
-            'tg_token' => '',
-            'tg_chat_id' => '',
+        'light.hobotix.dev' => [
+            'ip' => 'change-me',
+            'port' => 8899,
+            'timeout' => 5,
+            'tg_token' => 'change-me',
+            'tg_chat_id' => 'change-me',
+        ],
+        'light.charmpole.dance' => [
+            'ip' => 'change-me',
+            'port' => 443,
+            'timeout' => 5,
+            'tg_token' => 'change-me',
+            'tg_chat_id' => 'change-me',
         ],
     ],
 ];
