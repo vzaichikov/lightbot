@@ -15,6 +15,7 @@ return [
             'timeout' => 5,
             'tg_token' => 'change-me',
             'tg_chat_id' => 'change-me',
+            'texts_block' => 'default',
         ],
         'light.charmpole.dance' => [
             'ip' => 'change-me',
@@ -22,6 +23,7 @@ return [
             'timeout' => 5,
             'tg_token' => 'change-me',
             'tg_chat_id' => 'change-me',
+            'texts_block' => 'charmpole',
         ],
     ],
 ];
