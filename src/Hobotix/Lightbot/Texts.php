@@ -3,8 +3,7 @@
 namespace Hobotix\Lightbot;
 
 final class Texts{
-
-    public const BLOCKS = [
+   public const BLOCKS = [
 
         /*
          |--------------------------------------------------------------------------
@@ -103,13 +102,18 @@ final class Texts{
         ],
     ];
 
-    private static function resolveBlock(string $block): array{
-        return self::BLOCKS[$block] ?? self::BLOCKS['default'];
+    private static function resolveBlock(string $block): array
+    {
+        if (isset(self::BLOCKS[$block])) {
+            return self::BLOCKS[$block];
+        }
+
+        return self::BLOCKS['default'];
     }
 
-    public static function get_random_text(bool $status, string $block = 'default'): string{
+    public static function get_random_text($status, string $block = 'default')
+    {
         $set = self::resolveBlock($block);
-
         if ($status){
             return $set['light_on_first_line'][array_rand($set['light_on_first_line'])]
                 . PHP_EOL
@@ -121,15 +125,10 @@ final class Texts{
             . $set['light_off_second_line'][array_rand($set['light_off_second_line'])];
     }
 
-    public static function get_text_with_duration(
-        bool $status,
-        int $hours,
-        int $minutes,
-        string $block = 'default'
-    ): string{
+    public static function get_random_text_with_duration($status, int $hours, int $minutes, string $block = 'default')
+    {
         $set = self::resolveBlock($block);
         $durationKey = $status ? 'light_on_duration' : 'light_off_duration';
-
         $durationLine = sprintf(
             $set[$durationKey][array_rand($set[$durationKey])],
             $hours,
