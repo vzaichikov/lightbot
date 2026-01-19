@@ -3,9 +3,8 @@
     "type": "project",
     "autoload": {
         "files": [
-            "src/Hobotix/LightBot/Config.php",
-            "src/Hobotix/LightBot/Texts.php",
-            "src/Hobotix/LightBot/Texts2.php"
+            "src/Hobotix/Lightbot/Config.php",
+            "src/Hobotix/Lightbot/Texts.php"
         ],
         "psr-4": {
             "Hobotix\\": "src/Hobotix/"
