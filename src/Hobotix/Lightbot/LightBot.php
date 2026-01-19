@@ -55,6 +55,8 @@ final class LightBot
             return in_array($value, ['1', 'true', 'on', 'yes'], true);
         }
 
+        self::echoLine('Resolving device ' . $config['ip'] . ':' . $config['port'], 'd');
+
         $connection = @fsockopen(
             $config['ip'],
             (int)$config['port'],
@@ -73,10 +75,6 @@ final class LightBot
 
     private function shouldSendTelegram(array $config): bool
     {
-        if (getenv('LIGHTBOT_SKIP_TELEGRAM') === '1') {
-            return false;
-        }
-
         return !empty($config['tg_token']) && !empty($config['tg_chat_id']);
     }
 
@@ -136,11 +134,10 @@ final class LightBot
         if ($pendingStatus !== null && (int)$pendingStatus === $currentStatus) {
             self::echoLine('Same changed status detected twice in a row, confirming change and sending alert', 'w');
             if ($this->shouldSendTelegram($config)) {
-                $textBlock = $config['texts_block'] ?? 'default';
                 $this->sendTelegramMessage(
                     $config['tg_token'],
                     $config['tg_chat_id'],
-                    Texts::get_random_text((bool)$currentStatus, $textBlock)
+                    Texts::get_random_text((bool)$currentStatus, $config['texts_block'])
                 );
             }
             $this->database->confirmStatusChange($domain, $currentStatus, $now);
