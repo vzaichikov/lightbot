@@ -136,10 +136,11 @@ final class LightBot
         if ($pendingStatus !== null && (int)$pendingStatus === $currentStatus) {
             self::echoLine('Same changed status detected twice in a row, confirming change and sending alert', 'w');
             if ($this->shouldSendTelegram($config)) {
+                $textBlock = $config['texts_block'] ?? 'default';
                 $this->sendTelegramMessage(
                     $config['tg_token'],
                     $config['tg_chat_id'],
-                    Texts::get_random_text((bool)$currentStatus)
+                    Texts::get_random_text((bool)$currentStatus, $textBlock)
                 );
             }
             $this->database->confirmStatusChange($domain, $currentStatus, $now);
