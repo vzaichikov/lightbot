@@ -183,7 +183,7 @@ final class Texts
         );
 
         return self::get_random_text($status, $block)
-            . PHP_EOL
+            . PHP_EOL . PHP_EOL
             . $durationLine;
     }
 }
