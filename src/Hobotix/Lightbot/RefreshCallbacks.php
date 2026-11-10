@@ -12,6 +12,7 @@ final class RefreshCallbacks
 
     public function handle(string $token, array $domains, array $query, DateTimeImmutable $now): string
     {
+        $started = hrtime(true);
         $id = $query['id'] ?? null;
         if (!is_string($id) || $id === '') {
             return 'ignored';
@@ -60,7 +61,8 @@ final class RefreshCallbacks
             $message['rich'] = '<p><b>' . $notice . '</b></p>' . $message['rich'];
             $message['basic'] = '<b>' . $notice . "</b>\n\n" . $message['basic'];
             $result = $this->telegram->send($token, (string)$config['tg_chat_id'], $message);
-            $state = array_merge($state, $result, ['next_allowed' => $now->getTimestamp() + max(60, $result['retry_after']),
+            $respondedAt = $now->getTimestamp() + (int)ceil((hrtime(true) - $started) / 1000000000);
+            $state = array_merge($state, $result, ['next_allowed' => max($state['next_allowed'], $respondedAt + $result['retry_after']),
                 'feed_updated_at' => $snapshot['data']['feed_updated_at'] ?? null,
                 'checked_at' => $snapshot['checked_at'] ?? null, 'stale' => $snapshot['stale']]);
             $this->store->write($key, $state);

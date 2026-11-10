@@ -94,3 +94,29 @@ test('group lock prevents concurrent refresh and duplicate configured routing is
  $domains=cbDomains();$domains['duplicate']=$domains['light.hobotix.dev'];
  eq($handler->handle('fake-a',$domains,query(),at('2026-11-10 09:00')),'ignored');eq($fetches,0);
 });
+test('idle cursor expires beyond retained-update lifetime and accepts a lower new update ID',function(){
+ $calls=[];$fetches=0;$offsets=[];
+ [$handler,$store,$client]=cbWorker(tempdir(),$calls,$fetches,function($m,$t,$p)use(&$offsets){
+  if($m==='getUpdates'){$offsets[]=$p['offset'];return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>[['update_id'=>100,'callback_query'=>query()]]]];}
+  return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>$m==='answerCallbackQuery'?true:['message_id'=>8]]];
+ });
+ $key=CallbackPoller::key('fake-a');
+ $store->write($key,['offset'=>900001,'next_poll'=>0,'last_update_at'=>at('2026-11-07 09:00')->getTimestamp()]);
+ eq((new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0),['sent']);eq($offsets,[0]);eq($fetches,1);
+ eq($store->read($key)['offset'],101);
+});
+test('delayed send rate limit starts after the API response',function(){
+ $dir=tempdir();$calls=[];$fetches=0;[$handler,$store]=cbWorker($dir,$calls,$fetches,function($m){
+  if($m==='answerCallbackQuery')return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>true]];
+  usleep(1100000);return ['http'=>429,'error'=>false,'body'=>['ok'=>false,'error_code'=>429,'parameters'=>['retry_after'=>120]]];
+ });
+ $now=at('2026-11-10 09:00');$handler->handle('fake-a',cbDomains(),query(),$now);
+ $state=$store->read('refresh-'.hash('sha256','fake-a:-1'));eq($state['next_allowed']>=$now->getTimestamp()+122,true);
+});
+test('delayed polling rate limit starts after the API response',function(){
+ $calls=[];$fetches=0;[$handler,$store,$client]=cbWorker(tempdir(),$calls,$fetches,function(){
+  usleep(1100000);return ['http'=>429,'error'=>false,'body'=>['ok'=>false,'error_code'=>429,'parameters'=>['retry_after'=>120]]];
+ });
+ $now=at('2026-11-10 09:00');throws(fn()=>(new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),$now,0));
+ eq($store->read(CallbackPoller::key('fake-a'))['next_poll']>=$now->getTimestamp()+122,true);
+});
