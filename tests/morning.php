@@ -38,3 +38,8 @@ test('fetch failure still produces exactly one honest unavailable digest',functi
  $payloads=[];$w=worker(tempdir(),function($method,$token,$payload)use(&$payloads){$payloads[]=$payload;return success();},fn()=>throw new RuntimeException('unavailable'));
  $w->run(domains(),at('2026-11-10 09:00'));$w->run(domains(),at('2026-11-10 09:05'));eq(count($payloads),1);has($payloads[0]['rich_message']['html'],'не підтверджено');
 });
+test('unwritable private storage prevents dispatch',function(){
+ $dir=tempdir();$count=0;$w=worker($dir,function()use(&$count){$count++;return success();});chmod($dir,0500);
+ try {$r=$w->run(domains(),at('2026-11-10 09:00'));eq($count,0);eq($r['light.hobotix.dev'],'error');}
+ finally {chmod($dir,0700);}
+});
