@@ -27,3 +27,9 @@ test('external labels cannot inject markup or links',function(){
 test('every existing phrase collection has 25 unique useful entries',function(){
  foreach(Texts::BLOCKS as $block){foreach(['light_on_first_line','light_on_second_line','light_off_first_line','light_off_second_line','light_on_duration','light_off_duration'] as $key){eq(count($block[$key]),25);eq(count(array_unique($block[$key])),25);foreach($block[$key] as $phrase){if(str_ends_with($key,'duration')) { $v=sprintf($phrase,7,13);has($v,'7');has($v,'13');}}}}
 });
+test('verification combines labelled examples and live daily plan with required greeting',function(){
+ $m=(new MessageComposer)->verification('light.hobotix.dev',cfg(),snap(),at('2026-11-10 09:00'));
+ $greeting='Вітаю! Мене звати Хоботун, я найрозумніший AI-агент в світі. Пишу вам за дорученням свого повелителя Віктора Найвеличнішого.';
+ eq(str_starts_with(strip_tags($m['rich']),$greeting),true);has($m['rich'],'НЕ РЕАЛЬНІ ПОДІЇ');has($m['rich'],'СВІТЛО Є');has($m['rich'],'СВІТЛА НЕМАЄ');has($m['rich'],'<table');
+ eq(mb_strlen(strip_tags($m['basic']))<4096,true);
+});

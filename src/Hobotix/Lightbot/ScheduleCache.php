@@ -23,9 +23,20 @@ final class ScheduleCache
             $snapshot = $this->store->read($this->key($config));
             if (!is_array($snapshot) || !is_array($snapshot['data'] ?? null)
                 || !is_array($snapshot['data']['slots'] ?? null)
+                || !is_int($snapshot['data']['feed_updated_at'] ?? null)
+                || !is_bool($snapshot['data']['collector_ok'] ?? null)
                 || ($snapshot['data']['region'] ?? null) !== $config['region']
                 || ($snapshot['data']['group'] ?? null) !== $config['group']) {
                 return self::unavailable();
+            }
+            $end = null;
+            foreach ($snapshot['data']['slots'] as $slot) {
+                if (!is_array($slot) || !is_int($slot['start'] ?? null) || !is_int($slot['end'] ?? null)
+                    || $slot['end'] <= $slot['start'] || ($end !== null && $slot['start'] < $end)
+                    || !in_array($slot['state'] ?? null, ['on', 'off', 'possible'], true)) {
+                    return self::unavailable();
+                }
+                $end = $slot['end'];
             }
             return $this->freshness($snapshot, $now);
         } catch (\Throwable $e) {

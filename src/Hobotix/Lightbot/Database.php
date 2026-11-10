@@ -5,7 +5,7 @@ namespace Hobotix\Lightbot;
 use DateTimeImmutable;
 use PDO;
 
-final class Database
+final class Database implements StatusStore
 {
     private PDO $pdo;
 

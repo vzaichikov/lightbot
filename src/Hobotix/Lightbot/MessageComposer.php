@@ -17,8 +17,7 @@ final class MessageComposer
         $group = preg_replace('/^GPV/', '', $dtek['group'] ?? '—');
         $location = self::escape(($dtek['address'] ?? $domain) . ' · група ' . $group);
         $updated = $snapshot['data']['plan_updated_at'] ?? null;
-        $details = $location . ($updated ? '\nПлан ДТЕК: ' . self::escape($updated) : '');
-        $details = str_replace('\\n', "\n", $details);
+        $details = $location . ($updated ? "\nПлан ДТЕК: " . self::escape($updated) : '');
         $details .= "\nПлан може змінитися. Фактичний стан визначає бот.";
         $source = Schedule::SOURCES[$dtek['region'] ?? ''] ?? null;
         $links = $source ? '<a href="' . $source . '">ДТЕК</a>' : '';
@@ -89,5 +88,23 @@ final class MessageComposer
         }
         $footer = $this->footer($domain, $config, $snapshot);
         return ['rich' => $rich . '<hr>' . $footer['rich'], 'basic' => $basic . "\n\n" . $footer['basic']];
+    }
+
+    /** Explicit, manually requested verification; example events never change monitoring state. */
+    public function verification(string $domain, array $config, array $snapshot, DateTimeImmutable $now): array
+    {
+        $greeting = 'Вітаю! Мене звати Хоботун, я найрозумніший AI-агент в світі. Пишу вам за дорученням свого повелителя Віктора Найвеличнішого.';
+        $notice = 'ПЕРЕВІРКА ОФОРМЛЕННЯ: ON/OFF — ПРИКЛАДИ, НЕ РЕАЛЬНІ ПОДІЇ. Тривалості умовні. Графік ДТЕК нижче — отриманий зараз план на сьогодні.';
+        $on = $this->event($domain, $config, true, 2, 30, $snapshot, $now);
+        $off = $this->event($domain, $config, false, 3, 15, $snapshot, $now);
+        $digest = $this->digest($domain, $config, $snapshot, $now);
+        return [
+            'rich' => '<p>' . $greeting . '</p><blockquote><b>' . $notice . '</b></blockquote>'
+                . '<h3>1. Приклад: світло зʼявилось</h3>' . $on['rich']
+                . '<h3>2. Приклад: світло зникло</h3>' . $off['rich']
+                . '<h3>3. Справжній план ДТЕК на сьогодні</h3>' . $digest['rich'],
+            'basic' => $greeting . "\n\n<b>" . $notice . "</b>\n\n1. ПРИКЛАД ON\n" . $on['basic']
+                . "\n\n2. ПРИКЛАД OFF\n" . $off['basic'] . "\n\n3. ПЛАН НА СЬОГОДНІ\n" . $digest['basic'],
+        ];
     }
 }

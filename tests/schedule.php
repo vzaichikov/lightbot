@@ -67,3 +67,9 @@ test('storage corruption and lock contention fail closed',function(){
  file_put_contents($dir.'/example.json','broken'); throws(fn()=>$store->read('example'));
  $lock=$store->lock('busy'); eq($store->lock('busy'),null); flock($lock,LOCK_UN); fclose($lock);
 });
+test('corrupt normalized slots cannot appear as a fresh forecast',function(){
+ $dir=tempdir();$store=new RuntimeStore($dir);$c=new ScheduleCache($store,fn()=>feed());$cfg=['region'=>'kyiv-region','group'=>'GPV5.2'];
+ $c->refresh($cfg,at('2026-11-10 09:00'));
+ $s=$store->read('schedule-kyiv-region-GPV5.2');$s['data']['slots']=[['start'=>1,'end'=>2,'state'=>'invented']];$store->write('schedule-kyiv-region-GPV5.2',$s);
+ eq($c->read($cfg,at('2026-11-10 09:00'))['stale'],true);
+});

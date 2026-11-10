@@ -4,11 +4,13 @@ namespace Hobotix\Lightbot;
 
 final class LightBot
 {
-    private Database $database;
+    private StatusStore $database;
+    private TelegramClient $telegram;
 
-    public function __construct(?Database $database = null)
+    public function __construct(?StatusStore $database = null, ?TelegramClient $telegram = null, private ?ScheduleCache $cache = null)
     {
         $this->database = $database ?? new Database(Config::getDb());
+        $this->telegram = $telegram ?? new TelegramClient();
     }
 
     public static function echoLine(string $line, string $type = 'l'): void
@@ -21,30 +23,6 @@ final class LightBot
             'd' => "\033[35m$line \033[0m" . PHP_EOL,
             default => $line . PHP_EOL,
         };
-    }
-
-    private function sendTelegramMessage(string $botToken, string $chatId, string $message): string
-    {
-        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
-
-        $postFields = [
-            'chat_id' => $chatId,
-            'text' => $message,
-            'parse_mode' => 'HTML',
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        // curl_setopt($ch, CURLOPT_VERBOSE, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        return $response;
     }
 
     private function resolveStatus(array $config): bool
@@ -157,16 +135,24 @@ final class LightBot
                     $existingStatus['last_change_at'] ?? null,
                     $now
                 );
-                $this->sendTelegramMessage(
-                    $config['tg_token'],
-                    $config['tg_chat_id'],
-                    Texts::get_random_text_with_duration(
-                        (bool)$currentStatus,
-                        $hours,
-                        $minutes,
-                        $config['texts_block']
-                    )
-                );
+                $snapshot = ScheduleCache::unavailable();
+                try {
+                    if (!empty($config['dtek'])) {
+                        $this->cache ??= new ScheduleCache(new RuntimeStore(Config::runtimeDirectory()));
+                        $snapshot = $this->cache->read($config['dtek'], $now);
+                    }
+                } catch (\Throwable $e) {
+                    self::echoLine("Schedule cache unavailable for {$domain}", 'w');
+                }
+                try {
+                    $message = (new MessageComposer())->event($domain, $config, (bool)$currentStatus, $hours, $minutes, $snapshot, $now);
+                    $result = $this->telegram->send($config['tg_token'], (string)$config['tg_chat_id'], $message);
+                    if ($result['status'] !== 'sent') {
+                        self::echoLine("Telegram {$result['status']} for {$domain}; code {$result['code']}", 'e');
+                    }
+                } catch (\Throwable $e) {
+                    self::echoLine("Telegram alert failed for {$domain}", 'e');
+                }
             }
             $this->database->confirmStatusChange($domain, $currentStatus, $now);
         } else {

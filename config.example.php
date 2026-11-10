@@ -10,6 +10,8 @@ return [
     ],
     'domains' => [
         'light.hobotix.dev' => [
+            'label' => 'Hobotix',
+            'dtek' => ['region' => 'kyiv-region', 'group' => 'GPV5.2', 'address' => 'Київщина'],
             'ip' => 'change-me',
             'port' => 8899,
             'timeout' => 5,
@@ -18,6 +20,8 @@ return [
             'texts_block' => 'default',
         ],
         'light.charmpole.dance' => [
+            'label' => 'Charmpole',
+            'dtek' => ['region' => 'kyiv', 'group' => 'GPV14.1', 'address' => 'Київ, Берестейський 56А'],
             'ip' => 'change-me',
             'port' => 443,
             'timeout' => 5,

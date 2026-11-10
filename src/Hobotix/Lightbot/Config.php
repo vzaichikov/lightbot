@@ -23,6 +23,13 @@ final class Config
         return $config['domains'] ?? [];
     }
 
+    public static function runtimeDirectory(): string
+    {
+        $override = getenv('LIGHTBOT_RUNTIME_DIR');
+        return $override !== false && $override !== '' ? $override
+            : (self::loadConfig()['runtime_dir'] ?? dirname(__DIR__, 4) . '/.lightbot-runtime');
+    }
+
     private static function loadConfig(): array
     {
         if (self::$config !== null) {
