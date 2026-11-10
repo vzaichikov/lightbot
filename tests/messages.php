@@ -33,3 +33,9 @@ test('verification combines labelled examples and live daily plan with required 
  eq(str_starts_with(strip_tags($m['rich']),$greeting),true);has($m['rich'],'НЕ РЕАЛЬНІ ПОДІЇ');has($m['rich'],'СВІТЛО Є');has($m['rich'],'СВІТЛА НЕМАЄ');has($m['rich'],'<table');
  eq(mb_strlen(strip_tags($m['basic']))<4096,true);
 });
+test('autumn fold digest disambiguates intervals that appear backwards',function(){
+ $raw=feed('2026-10-25',[4=>'second']);$s=['data'=>Schedule::normalize($raw,'kyiv-region','GPV5.2'),'stale'=>false];
+ $m=(new MessageComposer)->digest('light.hobotix.dev',cfg(),$s,at('2026-10-25 09:00'));
+ has($m['rich'],'<td>03:30 UTC+03:00</td><td>03:00 UTC+02:00</td>');
+ has($m['basic'],'03:30 UTC+02:00–04:00 UTC+02:00');
+});

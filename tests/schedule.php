@@ -73,3 +73,8 @@ test('corrupt normalized slots cannot appear as a fresh forecast',function(){
  $s=$store->read('schedule-kyiv-region-GPV5.2');$s['data']['slots']=[['start'=>1,'end'=>2,'state'=>'invented']];$store->write('schedule-kyiv-region-GPV5.2',$s);
  eq($c->read($cfg,at('2026-11-10 09:00'))['stale'],true);
 });
+test('autumn fold restoration distinguishes the second occurrence of 03:00',function(){
+ $s=snapshot(feed('2026-10-25',[4=>'second']));
+ $text=Schedule::forecast($s,false,new DateTimeImmutable('2026-10-25T03:45:00+03:00'));
+ has($text,'03:00 UTC+02:00');
+});

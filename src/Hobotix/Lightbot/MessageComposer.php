@@ -35,7 +35,7 @@ final class MessageComposer
         $copy = Texts::get_random_text($on, $config['texts_block'] ?? 'default');
         $duration = Texts::duration($on, $hours, $minutes, $config['texts_block'] ?? 'default');
         $forecast = self::escape(Schedule::forecast($snapshot, $on, $now));
-        $time = Schedule::local($now)->format('d.m.Y H:i');
+        $time = Schedule::local($now)->format('d.m.Y') . ' ' . Schedule::timeLabel($now->getTimestamp());
         $footer = $this->footer($domain, $config, $snapshot);
         return [
             'rich' => '<h2>' . $title . '</h2><p>' . $time . '</p><p>' . nl2br($copy, false)
@@ -72,9 +72,9 @@ final class MessageComposer
                 $rich .= '<h3>' . $label . '</h3><table compact><tr><th>Від</th><th>До</th></tr>';
                 $basic .= "\n<b>" . $label . "</b>\n";
                 foreach ($day[$key] as $slot) {
-                    $start = Schedule::instant($slot['start'])->format('H:i');
-                    $end = Schedule::instant($slot['end'])->format('H:i');
-                    if ($end === '00:00') {
+                    $start = Schedule::timeLabel($slot['start']);
+                    $end = Schedule::timeLabel($slot['end']);
+                    if (Schedule::instant($slot['end'])->format('H:i') === '00:00') {
                         $end = '24:00';
                     }
                     $rich .= '<tr><td>' . $start . '</td><td>' . $end . '</td></tr>';

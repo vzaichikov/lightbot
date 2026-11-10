@@ -27,6 +27,14 @@ final class Schedule
         return self::local(new DateTimeImmutable('@' . $epoch));
     }
 
+    public static function timeLabel(int $epoch, bool $withDate = false): string
+    {
+        $time = self::instant($epoch);
+        $midnight = $time->setTime(0, 0);
+        $clockChanges = $midnight->modify('+1 day')->getTimestamp() - $midnight->getTimestamp() !== 86400;
+        return $time->format($withDate ? 'd.m H:i' : 'H:i') . ($clockChanges ? ' UTC' . $time->format('P') : '');
+    }
+
     public static function normalize(array $raw, string $region, string $group): array
     {
         if (!isset(self::SOURCES[$region]) || ($raw['regionId'] ?? null) !== $region
@@ -127,7 +135,7 @@ final class Schedule
                 : 'Відключення триває до кінця опублікованого графіка. Час повернення ще невідомий.';
         }
         $when = self::instant($next['start']);
-        $label = $when->format('Y-m-d') === self::local($now)->format('Y-m-d') ? $when->format('H:i') : $when->format('d.m H:i');
+        $label = self::timeLabel($next['start'], $when->format('Y-m-d') !== self::local($now)->format('Y-m-d'));
         if ($next['state'] === 'possible') {
             return 'З ' . $label . ' — можливе відключення. Час ' . ($on ? 'вимкнення' : 'увімкнення') . ' не підтверджено.';
         }
