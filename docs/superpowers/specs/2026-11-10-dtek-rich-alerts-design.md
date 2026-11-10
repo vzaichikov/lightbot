@@ -1,6 +1,6 @@
 # DTEK schedules and Telegram rich alerts
 
-Date: 2026-11-10. Status: proposed design, awaiting approval.
+Date: 2026-11-10. Status: approved by the user; 09:00 Kyiv time and HestiaCP native cron management required.
 
 ## Outcome
 
@@ -99,9 +99,9 @@ Fallback examples:
 
 ## Scheduling and delivery
 
-Proposed default, subject to design approval: **07:00 Europe/Kyiv daily** for both domains.
+Approved: **09:00 Europe/Kyiv daily** for both domains.
 
-Install production-only entries for cache refresh every five minutes and a morning worker every five minutes during 07:00–09:55 Kyiv time. The worker targets one digest per domain/date and catches up within this morning window after downtime. It sends at the first invocation at/after 07:00; subsequent runs only retry eligible failures, never normal successful sends. Explicitly set and verify timezone rather than assume cron interprets CRON_TZ.
+Use HestiaCP native cron management to install production-only entries for cache refresh every five minutes and a morning worker every five minutes during 09:00–11:55 Kyiv time. The worker targets one digest per domain/date and catches up within this morning window after downtime. It sends at the first invocation at/after 09:00; subsequent runs only retry eligible failures, never normal successful sends. Explicitly set and verify timezone rather than assume cron interprets CRON_TZ.
 
 Track domain/date delivery under a lock. Persist intent before sending and success afterward. Definite API rejection can be retried according to bounded retry policy/Telegram retry_after. Timeout or interruption after dispatch is marked uncertain and not automatically resent; document that this avoids duplicates at the cost of possible lost digests. Missing or stale schedule produces one honest unavailable-data digest, not repeated messages. No automatic later-day correction digest is in scope.
 
@@ -121,9 +121,9 @@ Lint all changed PHP. Inspect generated previews of event/digest/unknown states.
 
 The user's request places recurring tasks on production. This design covers implementing and deploying this release after approval, without a second generic deployment confirmation. Unexpected production drift is a separate stop-and-reconcile condition.
 
-## Remaining approval
+## Approval
 
-Approve this design, including the proposed 07:00 Kyiv digest time and the accepted 56А/14.1 address substitution already directed by the user. Routine class layout, exact phrases, test harness and supported native tag choices are implementation decisions.
+The user approved implementation, testing, and deployment, with 09:00 Kyiv time and HestiaCP native cron management. The accepted 56А/14.1 address substitution is already directed by the user. Routine class layout, exact phrases, test harness and supported native tag choices are implementation decisions.
 
 ## Sources
 
