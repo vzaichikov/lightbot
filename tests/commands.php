@@ -56,3 +56,17 @@ test('command registration fails closed on read or write errors',function(){
  $c=new TelegramClient(fn($m)=>$m==='getMyCommands'?['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>[]]]:['http'=>403,'error'=>false,'body'=>['ok'=>false]]);
  throws(fn()=>$c->registerDtekCommand('fake','-1'));
 });
+test('startup identity rate limit persists across restarts and blocks all API calls until expiry',function(){
+ $calls=[];$fetches=0;$limited=true;
+ [$h,$s,$c]=commandWorker($calls,$fetches,function($m)use(&$limited){
+  if($m==='getMe' && $limited){usleep(1100000);return ['http'=>429,'error'=>false,'body'=>['ok'=>false,'error_code'=>429,'parameters'=>['retry_after'=>600]]];}
+  return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>$m==='getMe'?['id'=>10,'is_bot'=>true,'username'=>'light_bot']:[]]];
+ });
+ $now=at('2026-11-10 09:00');
+ throws(fn()=>(new CallbackPoller($s,$c,$h))->poll('fake',cmdDomains(),$now,0));eq(array_column($calls,0),['getMe']);
+ throws(fn()=>(new CallbackPoller($s,$c,$h))->poll('fake',cmdDomains(),$now->modify('+599 seconds'),0));eq(count($calls),1);
+ $limited=false;$p=new CallbackPoller($s,$c,$h);
+ eq($p->poll('fake',cmdDomains(),$now->modify('+602 seconds'),0),[]);
+ eq($p->poll('fake',cmdDomains(),$now->modify('+603 seconds'),0),[]);
+ eq(array_column($calls,0),['getMe','getMe','getUpdates','getUpdates']);
+});

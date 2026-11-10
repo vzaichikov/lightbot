@@ -58,16 +58,16 @@ test('polling persists offset before dispatch and replay cannot resend after amb
   if($m==='sendRichMessage')return ['http'=>0,'error'=>true,'body'=>null];
   return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>true]];
  });
- $poller=new CallbackPoller($store,$client,$handler);
+ $poller=new CallbackPoller($store,$client,$handler,'light_bot');
  eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:01'),20),['uncertain']);
- $poller=new CallbackPoller($store,$client,$handler);
+ $poller=new CallbackPoller($store,$client,$handler,'light_bot');
  eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:05'),20),[]);eq($fetches,1);
  eq($pollOffsets[0]['offset'],0);eq($pollOffsets[1]['offset'],11);eq($pollOffsets[0]['allowed_updates'],['callback_query','message']);eq($pollOffsets[0]['timeout'],20);
 });
 test('polling skips unrelated updates and cannot advance past a malformed batch',function(){
  $calls=[];$fetches=0;$batch=[['update_id'=>4,'message'=>['text'=>'hello']],['update_id'=>5,'callback_query'=>query()]];
  [$handler,$store,$client]=cbWorker(tempdir(),$calls,$fetches,function($m)use(&$batch){return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>$m==='getUpdates'?$batch:($m==='answerCallbackQuery'?true:['message_id'=>4])]];});
- $poller=new CallbackPoller($store,$client,$handler);eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:01'),0),['ignored','sent']);
+ $poller=new CallbackPoller($store,$client,$handler,'light_bot');eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:01'),0),['ignored','sent']);
  $batch=[['update_id'=>7,'callback_query'=>query()],['update_id'=>'bad']];throws(fn()=>$poller->poll('fake-a',cbDomains(),at('2026-11-10 09:05'),0));eq($fetches,1);
 });
 test('source refresh already in progress cannot relabel old cache as an on-demand refresh',function(){
@@ -79,13 +79,13 @@ test('source refresh already in progress cannot relabel old cache as an on-deman
 });
 test('polling rate limit survives worker restarts without additional API requests',function(){
  $calls=[];$fetches=0;[$handler,$store,$client]=cbWorker(tempdir(),$calls,$fetches,fn()=>['http'=>429,'error'=>false,'body'=>['ok'=>false,'error_code'=>429,'parameters'=>['retry_after'=>600]]]);
- throws(fn()=>(new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0));
- throws(fn()=>(new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),at('2026-11-10 09:05'),0));eq(count($calls),1);
+ throws(fn()=>(new CallbackPoller($store,$client,$handler,'light_bot'))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0));
+ throws(fn()=>(new CallbackPoller($store,$client,$handler,'light_bot'))->poll('fake-a',cbDomains(),at('2026-11-10 09:05'),0));eq(count($calls),1);
 });
 test('malformed cursor fails closed before fetching or sending',function(){
  $dir=tempdir();$calls=[];$fetches=0;[$handler,$store,$client]=cbWorker($dir,$calls,$fetches);
  $store->write(CallbackPoller::key('fake-a'),['offset'=>'bad','next_poll'=>0]);
- throws(fn()=>(new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0));eq($calls,[]);eq($fetches,0);
+ throws(fn()=>(new CallbackPoller($store,$client,$handler,'light_bot'))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0));eq($calls,[]);eq($fetches,0);
 });
 test('group lock prevents concurrent refresh and duplicate configured routing is rejected',function(){
  $calls=[];$fetches=0;[$handler,$store]=cbWorker(tempdir(),$calls,$fetches);
@@ -102,7 +102,7 @@ test('idle cursor expires beyond retained-update lifetime and accepts a lower ne
  });
  $key=CallbackPoller::key('fake-a');
  $store->write($key,['offset'=>900001,'next_poll'=>0,'last_update_at'=>at('2026-11-07 09:00')->getTimestamp()]);
- eq((new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0),['sent']);eq($offsets,[0]);eq($fetches,1);
+ eq((new CallbackPoller($store,$client,$handler,'light_bot'))->poll('fake-a',cbDomains(),at('2026-11-10 09:00'),0),['sent']);eq($offsets,[0]);eq($fetches,1);
  eq($store->read($key)['offset'],101);
 });
 test('delayed send rate limit starts after the API response',function(){
@@ -117,6 +117,6 @@ test('delayed polling rate limit starts after the API response',function(){
  $calls=[];$fetches=0;[$handler,$store,$client]=cbWorker(tempdir(),$calls,$fetches,function(){
   usleep(1100000);return ['http'=>429,'error'=>false,'body'=>['ok'=>false,'error_code'=>429,'parameters'=>['retry_after'=>120]]];
  });
- $now=at('2026-11-10 09:00');throws(fn()=>(new CallbackPoller($store,$client,$handler))->poll('fake-a',cbDomains(),$now,0));
+ $now=at('2026-11-10 09:00');throws(fn()=>(new CallbackPoller($store,$client,$handler,'light_bot'))->poll('fake-a',cbDomains(),$now,0));
  eq($store->read(CallbackPoller::key('fake-a'))['next_poll']>=$now->getTimestamp()+122,true);
 });

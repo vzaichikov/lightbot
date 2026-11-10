@@ -88,7 +88,7 @@ final class TelegramClient
     {
         $response = $this->call($method, $token, $payload);
         if (!empty($response['error']) || ($response['http'] ?? 0) !== 200 || ($response['body']['ok'] ?? null) !== true) {
-            throw new \RuntimeException('Telegram operation failed');
+            throw new \RuntimeException('Telegram operation failed', max(60, (int)($response['body']['parameters']['retry_after'] ?? 0)));
         }
         return $response['body']['result'] ?? null;
     }

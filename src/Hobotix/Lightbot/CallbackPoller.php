@@ -34,6 +34,9 @@ final class CallbackPoller
             $this->store->write($key, $state);
         }
         try {
+            if ($this->username === '') {
+                $this->username = $this->telegram->username($token);
+            }
             $updates = $this->telegram->updates($token, $state['offset'], $timeout);
         } catch (\RuntimeException $e) {
             $respondedAt = $now->getTimestamp() + (int)ceil((hrtime(true) - $started) / 1000000000);
