@@ -62,12 +62,12 @@ test('polling persists offset before dispatch and replay cannot resend after amb
  eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:01'),20),['uncertain']);
  $poller=new CallbackPoller($store,$client,$handler);
  eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:05'),20),[]);eq($fetches,1);
- eq($pollOffsets[0]['offset'],0);eq($pollOffsets[1]['offset'],11);eq($pollOffsets[0]['allowed_updates'],['callback_query']);eq($pollOffsets[0]['timeout'],20);
+ eq($pollOffsets[0]['offset'],0);eq($pollOffsets[1]['offset'],11);eq($pollOffsets[0]['allowed_updates'],['callback_query','message']);eq($pollOffsets[0]['timeout'],20);
 });
 test('polling skips unrelated updates and cannot advance past a malformed batch',function(){
  $calls=[];$fetches=0;$batch=[['update_id'=>4,'message'=>['text'=>'hello']],['update_id'=>5,'callback_query'=>query()]];
  [$handler,$store,$client]=cbWorker(tempdir(),$calls,$fetches,function($m)use(&$batch){return ['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>$m==='getUpdates'?$batch:($m==='answerCallbackQuery'?true:['message_id'=>4])]];});
- $poller=new CallbackPoller($store,$client,$handler);eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:01'),0),['sent']);
+ $poller=new CallbackPoller($store,$client,$handler);eq($poller->poll('fake-a',cbDomains(),at('2026-11-10 09:01'),0),['ignored','sent']);
  $batch=[['update_id'=>7,'callback_query'=>query()],['update_id'=>'bad']];throws(fn()=>$poller->poll('fake-a',cbDomains(),at('2026-11-10 09:05'),0));eq($fetches,1);
 });
 test('source refresh already in progress cannot relabel old cache as an on-demand refresh',function(){

@@ -49,13 +49,48 @@ final class TelegramClient
     public function updates(string $token, int $offset, int $timeout): array
     {
         $response = $this->call('getUpdates', $token, ['offset' => $offset, 'limit' => 20,
-            'timeout' => max(0, min(20, $timeout)), 'allowed_updates' => ['callback_query']]);
+            'timeout' => max(0, min(20, $timeout)), 'allowed_updates' => ['callback_query', 'message']]);
         $body = $response['body'] ?? null;
         if (!empty($response['error']) || ($response['http'] ?? 0) !== 200 || ($body['ok'] ?? null) !== true
             || !is_array($body['result'] ?? null) || !array_is_list($body['result'])) {
             throw new \RuntimeException('Telegram polling failed', max(60, (int)($body['parameters']['retry_after'] ?? 0)));
         }
         return $body['result'];
+    }
+
+    public function username(string $token): string
+    {
+        $me = $this->apiResult('getMe', $token, []);
+        if (!is_array($me) || ($me['is_bot'] ?? null) !== true || !is_string($me['username'] ?? null)
+            || !preg_match('/\A[A-Za-z0-9_]{5,32}\z/', $me['username'])) {
+            throw new \RuntimeException('Invalid bot identity');
+        }
+        return $me['username'];
+    }
+
+    /** Explicit operational action, never called by a polling worker. */
+    public function registerDtekCommand(string $token, string $chat): void
+    {
+        $scope = ['scope' => ['type' => 'chat', 'chat_id' => $chat]];
+        $commands = $this->apiResult('getMyCommands', $token, $scope);
+        if (!is_array($commands) || !array_is_list($commands)) {
+            throw new \RuntimeException('Invalid command list');
+        }
+        $commands = array_values(array_filter($commands, static fn(array $command): bool => ($command['command'] ?? '') !== 'dtek'));
+        $commands[] = ['command' => 'dtek', 'description' => 'Оновити графік ДТЕК і надіслати в групу'];
+        if (count($commands) > 100 || $this->apiResult('setMyCommands', $token, $scope + ['commands' => $commands]) !== true
+            || $this->apiResult('getMyCommands', $token, $scope) !== $commands) {
+            throw new \RuntimeException('Command registration failed');
+        }
+    }
+
+    private function apiResult(string $method, string $token, array $payload): mixed
+    {
+        $response = $this->call($method, $token, $payload);
+        if (!empty($response['error']) || ($response['http'] ?? 0) !== 200 || ($response['body']['ok'] ?? null) !== true) {
+            throw new \RuntimeException('Telegram operation failed');
+        }
+        return $response['body']['result'] ?? null;
     }
 
     private function call(string $method, string $token, array $payload): array
@@ -72,7 +107,7 @@ final class TelegramClient
         $ch = curl_init('https://api.telegram.org/bot' . $token . '/' . $method);
         $body = '';
         curl_setopt_array($ch, [
-            CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($payload, JSON_THROW_ON_ERROR),
+            CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode((object)$payload, JSON_THROW_ON_ERROR),
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_TIMEOUT => $method === 'getUpdates' ? 30 : 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_FOLLOWLOCATION => false,

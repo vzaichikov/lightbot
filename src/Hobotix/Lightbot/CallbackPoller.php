@@ -7,7 +7,7 @@ use DateTimeImmutable;
 final class CallbackPoller
 {
     public function __construct(private RuntimeStore $store, private TelegramClient $telegram,
-        private RefreshCallbacks $handler) {}
+        private RefreshCallbacks $handler, private string $username = '') {}
 
     public static function key(string $token): string
     {
@@ -59,9 +59,11 @@ final class CallbackPoller
             $state['offset'] = $update['update_id'] + 1;
             $state['last_update_at'] = $now->getTimestamp() + (int)((hrtime(true) - $started) / 1000000000);
             $this->store->write($key, $state);
+            $elapsed = (int)((hrtime(true) - $started) / 1000000000);
             if (is_array($update['callback_query'] ?? null)) {
-                $elapsed = (int)((hrtime(true) - $started) / 1000000000);
                 $results[] = $this->handler->handle($token, $domains, $update['callback_query'], $now->modify('+' . $elapsed . ' seconds'));
+            } elseif (is_array($update['message'] ?? null)) {
+                $results[] = $this->handler->handleCommand($token, $domains, $update['message'], $this->username, $now->modify('+' . $elapsed . ' seconds'));
             }
         }
         return $results;

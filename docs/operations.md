@@ -43,7 +43,7 @@ sudo /usr/local/hestia/bin/v-add-cron-job hobotix '*' '*' '*' '*' '*' 'php /home
 
 Each command starts a long-polling worker. A token-scoped private file lock makes subsequent cron launches exit while that worker is healthy. Workers recycle after an hour; Hestia starts a replacement within a minute. No public webhook is exposed. API failures stop a worker; the persisted polling cooldown prevents rapid retries. On later deployments, stop only these app-owner worker processes after advancing the release so Hestia reloads code/config promptly (otherwise they reload on hourly recycling). Preserve their locks and cursor files; do not remove a lock file while a worker holds it.
 
-The poller persists each update offset **before** processing. Delivery is deliberately at most one attempt per update: a crash or uncertain network result may lose a click, but replay cannot duplicate its group message. Click again after the cooldown if needed. Corrupt private state fails closed. Idle cursors expire after 48 hours: beyond Telegram’s 24-hour update retention and before IDs can randomize after a quiet week ([API documentation](https://core.telegram.org/bots/api#update)). API backoff starts at response time. Atomic state replacement covers ordinary process crashes; no power-loss/exactly-once delivery guarantee is made. Polling offsets/cooldowns are bounded to one file per bot/group; no per-click file accumulation. Existing queued non-callback updates are acknowledged without action; new subscriptions request only `callback_query`.
+The poller persists each update offset **before** processing. Delivery is deliberately at most one attempt per update: a crash or uncertain network result may lose a click, but replay cannot duplicate its group message. Click again after the cooldown if needed. Corrupt private state fails closed. Idle cursors expire after 48 hours: beyond Telegram’s 24-hour update retention and before IDs can randomize after a quiet week ([API documentation](https://core.telegram.org/bots/api#update)). API backoff starts at response time. Atomic state replacement covers ordinary process crashes; no power-loss/exactly-once delivery guarantee is made. Polling offsets/cooldowns are bounded to one file per bot/group; no per-click file accumulation. Existing queued non-callback updates are acknowledged without action; new subscriptions request `callback_query` and `message`; ordinary chat messages are ignored.
 
 ## Data and message semantics
 
@@ -90,3 +90,17 @@ Before deployment, back up private `config.php` and Hestia cron metadata with re
 Verify deployed SHA, tracked-file hashes, PHP syntax/autoload, database connectivity in a read-only transaction, Hestia metadata/effective cron and fresh schedule cache. Do not run `run.php` as a health check. Send the explicitly authorized combined verification only after those checks.
 
 Rollback is a reviewed Git revert deployed by pinned fast-forward. Disable/remove only the new jobs through Hestia native commands if rolling back schedule support; restore the backed-up config as needed and preserve delivery records. Do not reset/clean production or rebuild cron from a hand-written crontab. Backups include unrelated cron definitions only for recovery; never restore over newer unrelated changes without review.
+
+## Group command menu
+
+Use `/dtek`, or `/dtek@sb_light_bot` in Hobotix and `/dtek@charmpole_bot` in Charmpole. Each command refreshes the source and sends the same rich digest as the inline button. Only configured groups are supported; commands addressed to another bot are ignored. Commands and buttons share one group cooldown. Repeated commands during that minute are silent; the inline button shows the remaining wait privately.
+
+The worker obtains its username from Telegram at startup and accepts only new bot-command message entities. Edited messages, ordinary conversation and messages from bots do not trigger refreshes.
+
+Register the menu explicitly on production as the app owner:
+
+```sh
+php tools/register-commands.php --apply
+```
+
+This preserves other commands in each configured chat's default-language command list and verifies the saved list. Global/private menus remain unchanged. Inspect language-specific and administrator command overrides before registration; those can take precedence. Registration is a release operation, never a cron job. Existing Hestia workers need restarting to subscribe to message updates and load command handling; preserve their cursors and locks.

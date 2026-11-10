@@ -23,14 +23,16 @@ try {
     }
     $telegram = new TelegramClient();
     $handler = new RefreshCallbacks($store, new ScheduleCache($store), new MessageComposer(), $telegram);
-    $poller = new CallbackPoller($store, $telegram, $handler);
+    $poller = new CallbackPoller($store, $telegram, $handler, $telegram->username($token));
     // Hestia cron acts as the watchdog; each healthy worker handles clicks immediately.
     // Recycling also bounds the time until configuration/code changes are reloaded.
     $deadline = hrtime(true) + 3600 * 1000000000;
     do {
         $results = $poller->poll($token, $domains, new DateTimeImmutable('now'));
         foreach ($results as $result) {
-            echo $domain . ': callback ' . $result . PHP_EOL;
+            if ($result !== 'ignored') {
+                echo $domain . ': refresh ' . $result . PHP_EOL;
+            }
         }
         usleep(100000);
     } while (hrtime(true) < $deadline);
