@@ -1,0 +1,80 @@
+<?php
+
+namespace Hobotix\Lightbot;
+
+use DateTimeImmutable;
+
+/** Only accepts updates retrieved from Telegram by the token-owning poller. */
+final class RefreshCallbacks
+{
+    public function __construct(private RuntimeStore $store, private ScheduleCache $cache,
+        private MessageComposer $composer, private TelegramClient $telegram) {}
+
+    public function handle(string $token, array $domains, array $query, DateTimeImmutable $now): string
+    {
+        $id = $query['id'] ?? null;
+        if (!is_string($id) || $id === '') {
+            return 'ignored';
+        }
+        $chat = $query['message']['chat'] ?? [];
+        $matches = [];
+        foreach ($domains as $domain => $config) {
+            if ($token !== '' && ($config['tg_token'] ?? '') === $token && !empty($config['dtek'])
+                && isset($chat['id']) && (string)($config['tg_chat_id'] ?? '') === (string)$chat['id']) {
+                $matches[$domain] = $config;
+            }
+        }
+        if (($query['data'] ?? null) !== 'dtek:refresh' || count($matches) !== 1
+            || !in_array($chat['type'] ?? null, ['group', 'supergroup'], true)) {
+            $this->telegram->answerCallback($token, $id, 'Ця кнопка недоступна в цьому чаті.');
+            return 'ignored';
+        }
+        $domain = array_key_first($matches);
+        $config = $matches[$domain];
+        $key = 'refresh-' . hash('sha256', $token . ':' . $config['tg_chat_id']);
+        $lock = null;
+        $acknowledged = false;
+        try {
+            $lock = $this->store->lock($key);
+            if ($lock === null) {
+                $this->telegram->answerCallback($token, $id, 'Графік уже оновлюється. Зачекайте трохи.');
+                return 'busy';
+            }
+            $state = $this->store->read($key);
+            if ($state !== null && (!is_int($state['next_allowed'] ?? null) || !is_string($state['status'] ?? null))) {
+                throw new \RuntimeException('Invalid callback state');
+            }
+            if (($state['next_allowed'] ?? 0) > $now->getTimestamp()) {
+                $wait = $state['next_allowed'] - $now->getTimestamp();
+                $this->telegram->answerCallback($token, $id, 'Без спаму, бляха. Наступне оновлення через ' . $wait . ' с.');
+                return 'cooldown';
+            }
+            $state = ['next_allowed' => $now->getTimestamp() + 60, 'status' => 'sending',
+                'requested_at' => $now->getTimestamp(), 'domain' => $domain];
+            $this->store->write($key, $state);
+            $this->telegram->answerCallback($token, $id, 'Отримую останній опублікований графік ДТЕК…');
+            $acknowledged = true;
+            $snapshot = $this->cache->refresh($config['dtek'], $now, requireFetch: true);
+            $message = $this->composer->digest($domain, $config, $snapshot, $now);
+            $notice = '🔄 Запит на оновлення: ' . Schedule::timeLabel($now->getTimestamp()) . ' · Київ';
+            $message['rich'] = '<p><b>' . $notice . '</b></p>' . $message['rich'];
+            $message['basic'] = '<b>' . $notice . "</b>\n\n" . $message['basic'];
+            $result = $this->telegram->send($token, (string)$config['tg_chat_id'], $message);
+            $state = array_merge($state, $result, ['next_allowed' => $now->getTimestamp() + max(60, $result['retry_after']),
+                'feed_updated_at' => $snapshot['data']['feed_updated_at'] ?? null,
+                'checked_at' => $snapshot['checked_at'] ?? null, 'stale' => $snapshot['stale']]);
+            $this->store->write($key, $state);
+            return $result['status'];
+        } catch (\Throwable $e) {
+            if (!$acknowledged) {
+                $this->telegram->answerCallback($token, $id, 'Не вдалося оновити графік. Спробуйте трохи пізніше.');
+            }
+            return 'error';
+        } finally {
+            if ($lock !== null) {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+        }
+    }
+}

@@ -20,3 +20,10 @@ test('API rejection preserves retry-after and never leaks description or token',
 test('unauthorized and unrelated bad requests do not fall back',function()use($message){
  foreach([401,403,400] as $code){$n=0;$c=new TelegramClient(function()use($code,&$n){$n++;return ['http'=>$code,'body'=>['ok'=>false,'error_code'=>$code,'description'=>'Bad Request: chat not found'],'error'=>false];});eq($c->send('fake','-123',$message)['status'],'rejected');eq($n,1);}
 });
+test('DTEK composer buttons survive native rich and basic fallback transports',function(){
+ $composer=new Hobotix\Lightbot\MessageComposer();$config=['dtek'=>['region'=>'kyiv-region','group'=>'GPV5.2']];$snapshot=Hobotix\Lightbot\ScheduleCache::unavailable();$now=at('2026-11-10 09:00');
+ $messages=[$composer->event('light.hobotix.dev',$config,true,1,0,$snapshot,$now),$composer->digest('light.hobotix.dev',$config,$snapshot,$now),$composer->verification('light.hobotix.dev',$config,$snapshot,$now)];
+ foreach($messages as $message){$seen=[];$client=new TelegramClient(function($method,$token,$payload)use(&$seen){$seen[]=$payload;return $method==='sendRichMessage'?['http'=>400,'error'=>false,'body'=>['ok'=>false,'description'=>'rich messages are not supported']]:['http'=>200,'error'=>false,'body'=>['ok'=>true,'result'=>['message_id'=>3]]];});
+  $client->send('fake','-1',$message);foreach($seen as $payload)eq($payload['reply_markup']['inline_keyboard'][0][0]['callback_data']??null,'dtek:refresh');
+ }
+});

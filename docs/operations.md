@@ -28,6 +28,23 @@ The digest starts at **09:00 Europe/Kyiv**. The 09:00–11:55 window allows catc
 
 `run.php` holds a nonblocking lock across probing and confirming transitions. Event messages read the existing cache only; DTEK fetches cannot delay monitoring. The refresh job fetches each configured region/group with bounded HTTPS requests. The morning worker refreshes before its digest.
 
+## On-demand DTEK button
+
+All DTEK event and schedule messages include `🔄 Оновити графік ДТЕК`. Any group member can click it. The bot acknowledges the click, fetches the latest published source and posts today's rich schedule in that configured group. This bypasses the local cache; the upstream mirror's publishing delay still applies. A source refresh already in progress or a failed/stale feed produces an unavailable warning instead of presenting cached data as a fresh retrieval. Request time and the DTEK plan timestamp are shown separately.
+
+Each group has a persistent 60-second cooldown (longer when Telegram specifies `retry_after`). Unknown chats, bot/token mismatches and unsupported callback data cannot dispatch messages. This operation never changes monitoring rows or the daily digest receipt.
+
+Before enabling polling, verify `getWebhookInfo` has an empty URL and that no other update consumer uses these tokens. Configure **only in production**, using Hestia's native commands after checking for existing matching jobs:
+
+```sh
+sudo /usr/local/hestia/bin/v-add-cron-job hobotix '*' '*' '*' '*' '*' 'php /home/hobotix/web/light.hobotix.dev/public_html/callbacks.php light.hobotix.dev'
+sudo /usr/local/hestia/bin/v-add-cron-job hobotix '*' '*' '*' '*' '*' 'php /home/hobotix/web/light.hobotix.dev/public_html/callbacks.php light.charmpole.dance'
+```
+
+Each command starts a long-polling worker. A token-scoped private file lock makes subsequent cron launches exit while that worker is healthy. Workers recycle after an hour; Hestia starts a replacement within a minute. No public webhook is exposed. API failures stop a worker; the persisted polling cooldown prevents rapid retries. On later deployments, stop only these app-owner worker processes after advancing the release so Hestia reloads code/config promptly (otherwise they reload on hourly recycling). Preserve their locks and cursor files; do not remove a lock file while a worker holds it.
+
+The poller persists each update offset **before** processing. Delivery is deliberately at most one attempt per update: a crash or uncertain network result may lose a click, but replay cannot duplicate its group message. Click again after the cooldown if needed. Corrupt private state fails closed. Polling offsets/cooldowns are bounded to one file per bot/group; no per-click file accumulation. Existing queued non-callback updates are acknowledged without action; new subscriptions request only `callback_query`.
+
 ## Data and message semantics
 
 The source is DTEK via `Baskerville42/outage-data-ua` on GitHub. Published daily `fact.data` is used; weekly presets never stand in for an unpublished day. Hourly states are interpreted as half-hours. Kyiv DST, gaps, midnight and possible-outage states are handled explicitly. Cache data older than 20 minutes, collector errors or timestamps more than one minute ahead suppress confident forecasts.

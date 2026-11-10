@@ -38,6 +38,7 @@ final class MessageComposer
         $time = Schedule::local($now)->format('d.m.Y') . ' ' . Schedule::timeLabel($now->getTimestamp());
         $footer = $this->footer($domain, $config, $snapshot);
         return [
+            'reply_markup' => self::refreshButton($config),
             'rich' => '<h2>' . $title . '</h2><p>' . $time . '</p><p>' . nl2br($copy, false)
                 . '</p><blockquote><b>' . $forecast . '</b></blockquote><p>' . $duration . '</p><hr>' . $footer['rich'],
             'basic' => '<b>' . $title . '</b>' . "\n" . $time . "\n\n" . $copy . "\n\n<b>" . $forecast
@@ -87,7 +88,15 @@ final class MessageComposer
             $basic .= "\n" . $total;
         }
         $footer = $this->footer($domain, $config, $snapshot);
-        return ['rich' => $rich . '<hr>' . $footer['rich'], 'basic' => $basic . "\n\n" . $footer['basic']];
+        return ['rich' => $rich . '<hr>' . $footer['rich'], 'basic' => $basic . "\n\n" . $footer['basic'],
+            'reply_markup' => self::refreshButton($config)];
+    }
+
+    public static function refreshButton(array $config): array
+    {
+        return ['inline_keyboard' => empty($config['dtek']) ? [] : [[
+            ['text' => '🔄 Оновити графік ДТЕК', 'callback_data' => 'dtek:refresh'],
+        ]]];
     }
 
     /** Explicit, manually requested verification; example events never change monitoring state. */
@@ -99,6 +108,7 @@ final class MessageComposer
         $off = $this->event($domain, $config, false, 3, 15, $snapshot, $now);
         $digest = $this->digest($domain, $config, $snapshot, $now);
         return [
+            'reply_markup' => self::refreshButton($config),
             'rich' => '<p>' . $greeting . '</p><blockquote><b>' . $notice . '</b></blockquote>'
                 . '<h3>1. Приклад: світло зʼявилось</h3>' . $on['rich']
                 . '<h3>2. Приклад: світло зникло</h3>' . $off['rich']

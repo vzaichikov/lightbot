@@ -13,6 +13,8 @@ final class TelegramClient
         }
         $method = 'sendRichMessage';
         $payload = ['chat_id' => $chat, 'rich_message' => ['html' => $message['rich']]];
+        $options = isset($message['reply_markup']) ? ['reply_markup' => $message['reply_markup']] : [];
+        $payload += $options;
         $response = $this->call($method, $token, $payload);
         $body = $response['body'] ?? null;
         $description = strtolower(is_string($body['description'] ?? null) ? $body['description'] : '');
@@ -24,7 +26,7 @@ final class TelegramClient
                 || str_contains($description, 'unsupported start tag'))) {
             $method = 'sendMessage';
             $response = $this->call($method, $token, ['chat_id' => $chat, 'text' => $message['basic'],
-                'parse_mode' => 'HTML', 'link_preview_options' => ['is_disabled' => true]]);
+                'parse_mode' => 'HTML', 'link_preview_options' => ['is_disabled' => true]] + $options);
         }
         $body = $response['body'] ?? null;
         if (empty($response['error']) && $response['http'] === 200 && ($body['ok'] ?? null) === true
@@ -37,6 +39,23 @@ final class TelegramClient
                 'retry_after' => max(0, (int)($body['parameters']['retry_after'] ?? 0))];
         }
         return ['status' => 'uncertain', 'code' => 'transport_or_invalid_response', 'retry_after' => 0];
+    }
+
+    public function answerCallback(string $token, string $id, string $text): void
+    {
+        $this->call('answerCallbackQuery', $token, ['callback_query_id' => $id, 'text' => $text, 'cache_time' => 0]);
+    }
+
+    public function updates(string $token, int $offset, int $timeout): array
+    {
+        $response = $this->call('getUpdates', $token, ['offset' => $offset, 'limit' => 20,
+            'timeout' => max(0, min(20, $timeout)), 'allowed_updates' => ['callback_query']]);
+        $body = $response['body'] ?? null;
+        if (!empty($response['error']) || ($response['http'] ?? 0) !== 200 || ($body['ok'] ?? null) !== true
+            || !is_array($body['result'] ?? null) || !array_is_list($body['result'])) {
+            throw new \RuntimeException('Telegram polling failed', max(60, (int)($body['parameters']['retry_after'] ?? 0)));
+        }
+        return $body['result'];
     }
 
     private function call(string $method, string $token, array $payload): array
@@ -55,7 +74,7 @@ final class TelegramClient
         curl_setopt_array($ch, [
             CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($payload, JSON_THROW_ON_ERROR),
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_TIMEOUT => $method === 'getUpdates' ? 30 : 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body): int {
                 if (strlen($body) + strlen($chunk) > 512 * 1024) {

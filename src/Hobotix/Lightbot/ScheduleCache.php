@@ -57,12 +57,12 @@ final class ScheduleCache
         return $snapshot;
     }
 
-    public function refresh(array $config, DateTimeImmutable $now): array
+    public function refresh(array $config, DateTimeImmutable $now, bool $requireFetch = false): array
     {
         $key = $this->key($config);
         $lock = $this->store->lock($key);
         if ($lock === null) {
-            return $this->read($config, $now);
+            return $requireFetch ? self::unavailable() : $this->read($config, $now);
         }
         try {
             $previous = $this->read($config, $now);
