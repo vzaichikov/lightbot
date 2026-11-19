@@ -10,7 +10,7 @@ This repository is a simple PHP “pinger” that checks a device’s TCP port s
 ## Core Logic
 - `src/Hobotix/LightBot/LightBot.php`:
   - Checks device availability via `fsockopen` using values from `Config`.
-  - Debounces status changes using “pending” files in a `status/` directory so that a change is only confirmed on two consecutive runs.
+  - Debounces status changes using “pending” files in a `status/` directory so that a change is only confirmed on three consecutive runs.
   - Sends Telegram messages via `sendTelegramMessage()` when a change is confirmed.
   - Tracks timestamps for ON/OFF transitions in status files.
 
@@ -27,7 +27,7 @@ This repository is a simple PHP “pinger” that checks a device’s TCP port s
 
 ## Operational Notes
 - The `status/` directory is created at runtime next to the repository root (one level above `src/`).
-- Status changes are confirmed only after two consecutive runs report the same new state (debounce logic).
+- Status changes are confirmed only after three consecutive runs report the same new state (debounce logic).
 
 ## Conventions
 - Namespace: `Hobotix\Lightbot` (note the lowercase `b` in `Lightbot`).

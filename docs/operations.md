@@ -1,6 +1,6 @@
 # DTEK schedules and Telegram alerts
 
-LightBot requires PHP 8.3+, cURL, PDO MySQL and the existing Composer autoloader. No new Composer packages or database migrations are required. Scheduled commands are CLI-only. The dashboard remains read-only.
+LightBot requires PHP 8.3+, cURL, PDO MySQL and the existing Composer autoloader. No new Composer packages are required. The three-check monitor requires the database migration below. Scheduled commands are CLI-only. The dashboard remains read-only.
 
 ## Configuration
 
@@ -57,7 +57,7 @@ Telegram sends native rich HTML with a basic HTML fallback only after an explici
 
 Morning delivery writes intent before dispatch and the outcome afterward under a domain/date lock. Sent, uncertain or interrupted sends are never automatically repeated. This favors avoiding duplicates over recovering a potentially lost message after a timeout. There is no promise of exactly-once delivery across network/process failures. Malformed delivery records fail closed; investigate them before restoring a known backup. A missing/stale schedule digest still counts as that day's digest.
 
-Event delivery retains the previous ordering: send, then confirm the transition in MySQL. Notification failure does not block recording or the next domain. The pre-existing crash window between a successful Telegram send and database commit remains; event messages have no durable outbox/retry queue. Two matching observations still confirm a change; initialization remains silent.
+Event delivery retains the previous ordering: send, then confirm the transition in MySQL. Notification failure does not block recording or the next domain. The pre-existing crash window between a successful Telegram send and database commit remains; event messages have no durable outbox/retry queue. Three consecutive matching changed observations confirm a change for each domain; initialization remains silent. Returning to the confirmed state resets the pending count. At one check per minute, confirmation occurs about two minutes after the first changed observation.
 
 ## Verification
 
@@ -82,6 +82,12 @@ php tools/verify-telegram.php --send --id=dtek-rich-20261110
 ```
 
 Reuse the same ID on restart. Existing intent/receipt suppresses another send even if delivery was ambiguous. No cron entry should run this tool. Without `--send`, it prints message previews after refreshing the cache. A successful receipt includes the API method, message ID, group and source timestamps; success through `sendMessage` is a fallback, not proof of native rich delivery.
+
+## Three-check database migration
+
+Before deploying the three-check monitor to an existing database, back up `device_status` and apply `migrations/2026-11-19-three-consecutive-checks.sql` once. It adds `pending_count` with a default of zero; existing pending readings start a new three-reading streak after deployment. New installations use the updated `db-structure.sql` instead.
+
+Apply the additive migration before advancing the code. The old monitor tolerates the extra column. Retain the column if reverting the code; removing it is unnecessary. Confirmed states and historical intervals are preserved.
 
 ## Release and rollback
 

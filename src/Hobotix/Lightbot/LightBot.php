@@ -4,6 +4,8 @@ namespace Hobotix\Lightbot;
 
 final class LightBot
 {
+    private const REQUIRED_CONSECUTIVE_CHECKS = 3;
+
     private StatusStore $database;
     private TelegramClient $telegram;
 
@@ -122,14 +124,18 @@ final class LightBot
 
         if ($currentStatus === $previousStatus) {
             self::echoLine('Current status equals confirmed status, nothing changed', 's');
-            $this->database->updateChecked($domain, null, $now);
+            $this->database->updateChecked($domain, null, $now, 0);
             return (string)$currentStatus;
         }
 
         self::echoLine('Current status differs from confirmed, checking debounce...', 'w');
 
-        if ($pendingStatus !== null && (int)$pendingStatus === $currentStatus) {
-            self::echoLine('Same changed status detected twice in a row, confirming change and sending alert', 'w');
+        $pendingCount = $pendingStatus !== null && (int)$pendingStatus === $currentStatus
+            ? (int)$existingStatus['pending_count'] + 1
+            : 1;
+
+        if ($pendingCount >= self::REQUIRED_CONSECUTIVE_CHECKS) {
+            self::echoLine('Same changed status detected three times in a row, confirming change and sending alert', 'w');
             if ($this->shouldSendTelegram($config)) {
                 [$hours, $minutes] = $this->getDurationSinceLastChange(
                     $existingStatus['last_change_at'] ?? null,
@@ -156,8 +162,8 @@ final class LightBot
             }
             $this->database->confirmStatusChange($domain, $currentStatus, $now);
         } else {
-            self::echoLine('First time we see this different status, waiting for next run to confirm', 'i');
-            $this->database->updateChecked($domain, $currentStatus, $now);
+            self::echoLine("Changed status detected {$pendingCount} of " . self::REQUIRED_CONSECUTIVE_CHECKS . ' times, waiting for next run', 'i');
+            $this->database->updateChecked($domain, $currentStatus, $now, $pendingCount);
         }
 
         return (string)$currentStatus;

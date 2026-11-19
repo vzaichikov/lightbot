@@ -47,7 +47,7 @@ final class Database implements StatusStore
     public function fetchStatus(string $domain): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT domain, status, pending_status, last_change_at, last_checked_at
+            'SELECT domain, status, pending_status, pending_count, last_change_at, last_checked_at
              FROM device_status
              WHERE domain = :domain'
         );
@@ -83,15 +83,17 @@ final class Database implements StatusStore
         ]);
     }
 
-    public function updateChecked(string $domain, ?int $pendingStatus, DateTimeImmutable $now): void
+    public function updateChecked(string $domain, ?int $pendingStatus, DateTimeImmutable $now, int $pendingCount): void
     {
         $stmt = $this->pdo->prepare(
             'UPDATE device_status
              SET pending_status = :pending_status,
+                 pending_count = :pending_count,
                  last_checked_at = :last_checked_at
              WHERE domain = :domain'
         );
         $stmt->bindValue('pending_status', $pendingStatus, $pendingStatus === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+        $stmt->bindValue('pending_count', $pendingCount, PDO::PARAM_INT);
         $stmt->bindValue('last_checked_at', $now->format('Y-m-d H:i:s'));
         $stmt->bindValue('domain', $domain);
         $stmt->execute();
@@ -107,6 +109,7 @@ final class Database implements StatusStore
                 'UPDATE device_status
                  SET status = :status,
                      pending_status = NULL,
+                     pending_count = 0,
                      last_change_at = :last_change_at,
                      last_checked_at = :last_checked_at
                  WHERE domain = :domain'

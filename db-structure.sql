@@ -2,6 +2,7 @@ CREATE TABLE `device_status` (
   `domain` varchar(255) NOT NULL,
   `status` tinyint(1) NOT NULL DEFAULT 0,
   `pending_status` tinyint(1) DEFAULT NULL,
+  `pending_count` tinyint unsigned NOT NULL DEFAULT 0,
   `last_change_at` datetime NOT NULL,
   `last_checked_at` datetime NOT NULL,
   PRIMARY KEY (`domain`)
